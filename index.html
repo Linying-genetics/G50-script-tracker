@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>甘特图项目管理系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin-top: 30px;
+        }
+        .card {
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        #gantt-chart {
+            height: 500px;
+            width: 100%;
+        }
+        .project-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .project-item:last-child {
+            border-bottom: none;
+        }
+        .main-project {
+            background-color: #e7f1ff;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .sub-project {
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            margin-left: 20px;
+            margin-bottom: 8px;
+        }
+        .progress-bar {
+            height: 8px;
+            border-radius: 4px;
+            background-color: #e9ecef;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #0d6efd;
+        }
+        .todo-list {
+            margin-left: 40px;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 4px;
+            border-left: 3px solid #0d6efd;
+        }
+        .todo-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+        .todo-item input[type="checkbox"] {
+            margin-right: 8px;
+        }
+        .project-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 5px;
+        }
+        .collapse-icon {
+            cursor: pointer;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">甘特图项目管理系统</h4>
+            </div>
+            <div class="card-body">
+                <!-- 主项目添加表单 -->
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <h5>添加主项目</h5>
+                        <form id="main-project-form" class="row g-3">
+                            <div class="col-md-3">
+                                <label for="main-project-name" class="form-label">主项目名称</label>
+                                <input type="text" class="form-control" id="main-project-name" required placeholder="例如：G99">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="main-start-date" class="form-label">开始日期</label>
+                                <input type="date" class="form-control" id="main-start-date" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="main-end-date" class="form-label">结束日期</label>
+                                <input type="date" class="form-control" id="main-end-date" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="main-progress" class="form-label">进度 (%)</label>
+                                <input type="number" class="form-control" id="main-progress" min="0" max="100" value="0" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="main-responsible" class="form-label">负责人</label>
+                                <input type="text" class="form-control" id="main-responsible" placeholder="例如：张三">
+                            </div>
+                            <div class="col-md-1 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100">添加</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 子项目添加表单 -->
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <h5>添加子项目</h5>
+                        <form id="sub-project-form" class="row g-3">
+                            <div class="col-md-2">
+                                <label for="parent-project" class="form-label">所属主项目</label>
+                                <select class="form-select" id="parent-project" required>
+                                    <option value="">请选择主项目</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="sub-project-name" class="form-label">子项目名称</label>
+                                <input type="text" class="form-control" id="sub-project-name" required placeholder="例如：FCX芯片开发">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="sub-start-date" class="form-label">开始日期</label>
+                                <input type="date" class="form-control" id="sub-start-date" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="sub-end-date" class="form-label">结束日期</label>
+                                <input type="date" class="form-control" id="sub-end-date" required>
+                            </div>
+                            <div class="col-md-1">
+                                <label for="sub-progress" class="form-label">进度 (%)</label>
+                                <input type="number" class="form-control" id="sub-progress" min="0" max="100" value="0" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="sub-responsible" class="form-label">负责人</label>
+                                <input type="text" class="form-control" id="sub-responsible" placeholder="例如：李四">
+                            </div>
+                            <div class="col-md-1 d-flex align-items-end">
+                                <button type="submit" class="btn btn-secondary w-100">添加</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 待办事项添加表单 -->
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <h5>添加待办事项</h5>
+                        <form id="todo-form" class="row g-3">
+                            <div class="col-md-2">
+                                <label for="parent-sub-project" class="form-label">所属子项目</label>
+                                <select class="form-select" id="parent-sub-project" required>
+                                    <option value="">请选择子项目</option>
+                                </select>
+                            </div>
+                            <div class="col-md-7">
+                                <label for="todo-content" class="form-label">待办内容</label>
+                                <input type="text" class="form-control" id="todo-content" required placeholder="例如：完成芯片测试用例编写">
+                            </div>
+                            <div class="col-md-1">
+                                <label for="todo-priority" class="form-label">优先级</label>
+                                <select class="form-select" id="todo-priority">
+                                    <option value="低">低</option>
+                                    <option value="中" selected>中</option>
+                                    <option value="高">高</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-success w-100">添加待办</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 甘特图展示区域 -->
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <h5>项目甘特图</h5>
+                        <div id="gantt-chart-container">
+                            <canvas id="gantt-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 项目列表 -->
+                <div class="row">
+                    <div class="col-md-12">
+                        <h5>项目列表</h5>
+                        <div id="project-list" class="border rounded p-3 bg-white"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化项目数据（三级结构：主项目->子项目->待办清单）
+        let mainProjects = [
+            {
+                id: 1,
+                name: "G99",
+                start: "2026-02-11",
+                end: "2026-04-30",
+                progress: 30,
+                responsible: "项目总监",
+                subProjects: [
+                    {
+                        id: 101,
+                        name: "FCX芯片开发",
+                        start: "2026-02-11",
+                        end: "2026-03-20",
+                        progress: 45,
+                        responsible: "硬件工程师",
+                        todos: [
+                            { id: 1001, content: "芯片需求分析", completed: false, priority: "高" },
+                            { id: 1002, content: "芯片原理图设计", completed: true, priority: "高" },
+                            { id: 1003, content: "样品打样", completed: false, priority: "中" },
+                            { id: 1004, content: "性能测试", completed: false, priority: "中" }
+                        ]
+                    },
+                    {
+                        id: 102,
+                        name: "G99 TS",
+                        start: "2026-02-15",
+                        end: "2026-03-15",
+                        progress: 20,
+                        responsible: "测试工程师",
+                        todos: [
+                            { id: 1005, content: "测试方案制定", completed: true, priority: "高" },
+                            { id: 1006, content: "测试环境搭建", completed: false, priority: "中" },
+                            { id: 1007, content: "自动化脚本编写", completed: false, priority: "低" }
+                        ]
+                    },
+                    {
+                        id: 103,
+                        name: "G99 直线电机QC",
+                        start: "2026-02-20",
+                        end: "2026-04-10",
+                        progress: 15,
+                        responsible: "QC工程师",
+                        todos: [
+                            { id: 1008, content: "质检标准制定", completed: false, priority: "高" },
+                            { id: 1009, content: "检测设备校准", completed: true, priority: "中" },
+                            { id: 1010, content: "首批样品检测", completed: false, priority: "高" }
+                        ]
+                    },
+                    {
+                        id: 104,
+                        name: "G99 试剂统一",
+                        start: "2026-03-01",
+                        end: "2026-04-15",
+                        progress: 10,
+                        responsible: "研发工程师",
+                        todos: [
+                            { id: 1011, content: "试剂配方整理", completed: false, priority: "中" },
+                            { id: 1012, content: "供应商筛选", completed: false, priority: "中" },
+                            { id: 1013, content: "小样试用", completed: false, priority: "低" }
+                        ]
+                    },
+                    {
+                        id: 105,
+                        name: "G99 系统集成",
+                        start: "2026-03-10",
+                        end: "2026-04-25",
+                        progress: 5,
+                        responsible: "系统工程师",
+                        todos: [
+                            { id: 1014, content: "集成方案设计", completed: false, priority: "高" },
+                            { id: 1015, content: "模块联调", completed: false, priority: "中" },
+                            { id: 1016, content: "系统测试", completed: false, priority: "低" }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 2,
+                name: "G50",
+                start: "2026-02-15",
+                end: "2026-05-15",
+                progress: 20,
+                responsible: "项目经理",
+                subProjects: [
+                    {
+                        id: 201,
+                        name: "G50 硬件设计",
+                        start: "2026-02-15",
+                        end: "2026-03-25",
+                        progress: 30,
+                        responsible: "硬件工程师",
+                        todos: [
+                            { id: 2001, content: "PCB版图设计", completed: false, priority: "高" },
+                            { id: 2002, content: "元器件选型", completed: true, priority: "高" },
+                            { id: 2003, content: "样机制作", completed: false, priority: "中" }
+                        ]
+                    },
+                    {
+                        id: 202,
+                        name: "G50 软件研发",
+                        start: "2026-02-20",
+                        end: "2026-04-10",
+                        progress: 15,
+                        responsible: "软件工程师",
+                        todos: [
+                            { id: 2004, content: "需求文档编写", completed: true, priority: "高" },
+                            { id: 2005, content: "代码开发", completed: false, priority: "中" },
+                            { id: 2006, content: "单元测试", completed: false, priority: "低" }
+                        ]
+                    },
+                    {
+                        id: 203,
+                        name: "G50 可靠性测试",
+                        start: "2026-03-01",
+                        end: "2026-04-20",
+                        progress: 10,
+                        responsible: "测试工程师",
+                        todos: [
+                            { id: 2007, content: "测试大纲制定", completed: false, priority: "高" },
+                            { id: 2008, content: "老化测试", completed: false, priority: "中" },
+                            { id: 2009, content: "环境测试", completed: false, priority: "中" }
+                        ]
+                    },
+                    {
+                        id: 204,
+                        name: "G50 工艺优化",
+                        start: "2026-03-10",
+                        end: "2026-04-30",
+                        progress: 5,
+                        responsible: "工艺工程师",
+                        todos: [
+                            { id: 2010, content: "工艺参数调整", completed: false, priority: "中" },
+                            { id: 2011, content: "良率提升验证", completed: false, priority: "低" },
+                            { id: 2012, content: "SOP编写", completed: false, priority: "低" }
+                        ]
+                    },
+                    {
+                        id: 205,
+                        name: "G50 量产准备",
+                        start: "2026-04-01",
+                        end: "2026-05-15",
+                        progress: 0,
+                        responsible: "生产工程师",
+                        todos: [
+                            { id: 2013, content: "产线布局规划", completed: false, priority: "高" },
+                            { id: 2014, content: "人员培训", completed: false, priority: "中" },
+                            { id: 2015, content: "物料采购", completed: false, priority: "中" }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 3,
+                name: "覆盖度专项",
+                start: "2026-02-20",
+                end: "2026-04-20",
+                progress: 25,
+                responsible: "质量经理",
+                subProjects: [
+                    {
+                        id: 301,
+                        name: "测试覆盖度分析",
+                        start: "2026-02-20",
+                        end: "2026-03-10",
+                        progress: 60,
+                        responsible: "测试分析师",
+                        todos: [
+                            { id: 3001, content: "覆盖度指标定义", completed: true, priority: "高" },
+                            { id: 3002, content: "现有测试用例梳理", completed: true, priority: "中" },
+                            { id: 3003, content: "覆盖度缺口分析", completed: false, priority: "高" }
+                        ]
+                    },
+                    {
+                        id: 302,
+                        name: "用例补充开发",
+                        start: "2026-03-01",
+                        end: "2026-03-25",
+                        progress: 30,
+                        responsible: "测试工程师",
+                        todos: [
+                            { id: 3004, content: "新增用例编写", completed: false, priority: "高" },
+                            { id: 3005, content: "用例评审", completed: false, priority: "中" },
+                            { id: 3006, content: "用例执行验证", completed: false, priority: "低" }
+                        ]
+                    },
+                    {
+                        id: 303,
+                        name: "自动化覆盖提升",
+                        start: "2026-03-10",
+                        end: "2026-04-10",
+                        progress: 15,
+                        responsible: "自动化工程师",
+                        todos: [
+                            { id: 3007, content: "自动化框架优化", completed: false, priority: "高" },
+                            { id: 3008, content: "自动化脚本开发", completed: false, priority: "中" },
+                            { id: 3009, content: "覆盖度统计工具集成", completed: false, priority: "中" }
+                        ]
+                    },
+                    {
+                        id: 304,
+                        name: "覆盖度监控体系",
+                        start: "2026-03-20",
+                        end: "2026-04-20",
+                        progress: 5,
+                        responsible: "DevOps工程师",
+                        todos: [
+                            { id: 3010, content: "监控看板设计", completed: false, priority: "高" },
+                            { id: 3011, content: "数据采集脚本开发", completed: false, priority: "中" },
+                            { id: 3012, content: "告警规则配置", completed: false, priority: "低" }
+                        ]
+                    }
+                ]
+            }
+        ];
+
+        // 生成唯一ID的工具函数
+        function generateId() {
+            return Date.now() + Math.floor(Math.random() * 1000);
+        }
+
+        // 初始化甘特图
+        let ganttChart;
+        function initGanttChart() {
+            const ctx = document.getElementById('gantt-chart').getContext('2d');
+            
+            // 处理甘特图数据（展示主项目）
+            const labels = mainProjects.map(p => p.name);
+            const startDates = mainProjects.map(p => new Date(p.start).getTime());
+            const endDates = mainProjects.map(p => new Date(p.end).getTime());
+            const durations = mainProjects.map((p, i) => (endDates[i] - startDates[i]) / (1000 * 60 * 60 * 24));
+            
+            // 销毁已存在的图表
+            if (ganttChart) {
+                ganttChart.destroy();
+            }
+
+            // 创建甘特图
+            ganttChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '项目工期（天）',
+                        data: durations,
+                        backgroundColor: 'rgba(13, 110, 253, 0.7)',
+                        borderColor: 'rgba(13, 110, 253, 1)',
+                        borderWidth: 1,
+                        barPercentage: 0.6
+                    }, {
+                        label: '已完成进度',
+                        data: mainProjects.map((p, i) => p.progress / 100 * durations[i]),
+                        backgroundColor: 'rgba(25, 135, 84, 0.7)',
+                        borderColor: 'rgba(25, 135, 84, 1)',
+                        borderWidth: 1,
+                        barPercentage: 0.6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '天数'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '主项目名称'
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const project = mainProjects[context.dataIndex];
+                                    if (context.datasetIndex === 0) {
+                                        return `总工期：${context.raw} 天 (${project.start} 至 ${project.end})`;
+                                    } else {
+                                        return `已完成：${project.progress}% (${context.raw.toFixed(1)} 天)`;
+                                    }
+                                }
+                            }
+                        },
+                        legend: {
+                            position: 'top'
+                        },
+                        title: {
+                            display: true,
+                            text: '项目进度甘特图'
+                        }
+                    }
+                }
+            });
+        }
+
+        // 更新下拉选项（主项目、子项目）
+        function updateSelectOptions() {
+            // 更新主项目下拉框
+            const parentProjectSelect = document.getElementById('parent-project');
+            parentProjectSelect.innerHTML = '<option value="">请选择主项目</option>';
+            mainProjects.forEach(project => {
+                const option = document.createElement('option');
+                option.value = project.id;
+                option.textContent = project.name;
+                parentProjectSelect.appendChild(option);
+            });
+
+            // 更新子项目下拉框
+            const parentSubProjectSelect = document.getElementById('parent-sub-project');
+            parentSubProjectSelect.innerHTML = '<option value="">请选择子项目</option>';
+            mainProjects.forEach(mainProject => {
+                mainProject.subProjects.forEach(subProject => {
+                    const option = document.createElement('option');
+                    option.value = `${mainProject.id}-${subProject.id}`;
+                    option.textContent = `${mainProject.name} - ${subProject.name}`;
+                    parentSubProjectSelect.appendChild(option);
+                });
+            });
+        }
+
+        // 渲染项目列表（三级结构）
+        function renderProjectList() {
+            const listContainer = document.getElementById('project-list');
+            listContainer.innerHTML = '';
+            
+            mainProjects.forEach(mainProject => {
+                // 创建主项目容器
+                const mainProjectEl = document.createElement('div');
+                mainProjectEl.className = 'project-item main-project';
+                mainProjectEl.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="collapse-icon" data-main-id="${mainProject.id}">▼</span>
+                            <strong>${mainProject.name}</strong> 
+                            <span class="text-muted">(${mainProject.start} - ${mainProject.end})</span>
+                            <br>
+                            <small>负责人：${mainProject.responsible || '未指定'}</small>
+                            <div class="mt-1 progress-bar">
+                                <div class="progress-fill" style="width: ${mainProject.progress}%"></div>
+                            </div>
+                            <small class="text-muted">进度：${mainProject.progress}% (子项目数：${mainProject.subProjects.length})</small>
+                        </div>
+                        <div class="project-actions">
+                            <button class="btn btn-sm btn-warning edit-main-btn" data-id="${mainProject.id}">编辑</button>
+                            <button class="btn btn-sm btn-danger delete-main-btn" data-id="${mainProject.id}">删除</button>
+                        </div>
+                    </div>
+                    <div class="sub-projects-container" id="sub-projects-${mainProject.id}"></div>
+                `;
+                listContainer.appendChild(mainProjectEl);
+
+                // 渲染子项目
+                const subProjectsContainer = document.getElementById(`sub-projects-${mainProject.id}`);
+                mainProject.subProjects.forEach(subProject => {
+                    const subProjectEl = document.createElement('div');
+                    subProjectEl.className = 'project-item sub-project';
+                    subProjectEl.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="collapse-icon" data-sub-id="${subProject.id}" data-main-id="${mainProject.id}">▼</span>
+                                <strong>${subProject.name}</strong> 
+                                <span class="text-muted">(${subProject.start} - ${subProject.end})</span>
+                                <br>
+                                <small>负责人：${subProject.responsible || '未指定'}</small>
+                                <div class="mt-1 progress-bar">
+                                    <div class="progress-fill" style="width: ${subProject.progress}%"></div>
+                                </div>
+                                <small class="text-muted">进度：${subProject.progress}% (待办数：${subProject.todos.length})</small>
+                            </div>
+                            <div class="project-actions">
+                                <button class="btn btn-sm btn-warning edit-sub-btn" data-main-id="${mainProject.id}" data-sub-id="${subProject.id}">编辑</button>
+                                <button class="btn btn-sm btn-danger delete-sub-btn" data-main-id="${mainProject.id}" data-sub-id="${subProject.id}">删除</button>
+                            </div>
+                        </div>
+                        <div class="todo-list-container" id="todos-${mainProject.id}-${subProject.id}"></div>
+                    `;
+                    subProjectsContainer.appendChild(subProjectEl);
+
+                    // 渲染待办清单
+                    const todoContainer = document.getElementById(`todos-${mainProject.id}-${subProject.id}`);
+                    const todoListEl = document.createElement('div');
+                    todoListEl.className = 'todo-list';
+                    
+                    if (subProject.todos.length === 0) {
+                        todoListEl.innerHTML = '<small class="text-muted">暂无待办事项</small>';
+                    } else {
+                        let todoHtml = '';
+                        subProject.todos.forEach(todo => {
+                            const priorityClass = todo.priority === '高' ? 'text-danger' : (todo.priority === '中' ? 'text-warning' : 'text-secondary');
+                            todoHtml += `
+                                <div class="todo-item">
+                                    <input type="checkbox" ${todo.completed ? 'checked' : ''} data-main-id="${mainProject.id}" data-sub-id="${subProject.id}" data-todo-id="${todo.id}" class="todo-checkbox">
+                                    <span style="${todo.completed ? 'text-decoration: line-through; color: #6c757d;' : ''}" class="${priorityClass}">
+                                        [${todo.priority}] ${todo.content}
+                                    </span>
+                                    <button class="btn btn-sm btn-danger ms-2 delete-todo-btn" data-main-id="${mainProject.id}" data-sub-id="${subProject.id}" data-todo-id="${todo.id}">×</button>
+                                </div>
+                            `;
+                        });
+                        todoListEl.innerHTML = todoHtml;
+                    }
+                    todoContainer.appendChild(todoListEl);
+                });
+            });
+
+            // 绑定折叠/展开事件
+            bindCollapseEvents();
+            // 绑定编辑/删除事件
+            bindProjectActions();
+            // 绑定待办事项事件
+            bindTodoActions();
+        }
+
+        // 绑定折叠/展开事件
+        function bindCollapseEvents() {
+            // 主项目折叠/展开
+            document.querySelectorAll('.collapse-icon[data-main-id]').forEach(icon => {
+                icon.addEventListener('click', function() {
+                    const mainId = this.getAttribute('data-main-id');
+                    const subContainer = document.getElementById(`sub-projects-${mainId}`);
+                    if (this.textContent === '▼') {
+                        subContainer.style.display = 'none';
+                        this.textContent = '▶';
+                    } else {
+                        subContainer.style.display = 'block';
+                        this.textContent = '▼';
+                    }
+                });
+            });
+
+            // 子项目折叠/展开
+            document.querySelectorAll('.collapse-icon[data-sub-id]').forEach(icon => {
+                icon.addEventListener('click', function() {
+                    const mainId = this.getAttribute('data-main-id');
+                    const subId = this.getAttribute('data-sub-id');
+                    const todoContainer = document.getElementById(`todos-${mainId}-${subId}`);
+                    if (this.textContent === '▼') {
+                        todoContainer.style.display = 'none';
+                        this.textContent = '▶';
+                    } else {
+                        todoContainer.style.display = 'block';
+                        this.textContent = '▼';
+                    }
+                });
+            });
+        }
+
+        // 绑定项目操作事件
+        function bindProjectActions() {
+            // 编辑主项目
+            document.querySelectorAll('.edit-main-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const mainId = parseInt(this.getAttribute('data-id'));
+                    const mainProject = mainProjects.find(p => p.id === mainId);
+                    
+                    // 填充表单
+                    document.getElementById('main-project-name').value = mainProject.name;
+                    document.getElementById('main-start-date').value = mainProject.start;
+                    document.getElementById('main-end-date').value = mainProject.end;
+                    document.getElementById('main-progress').value = mainProject.progress;
+                    document.getElementById('main-responsible').value = mainProject.responsible || '';
+                    
+                    // 修改表单提交逻辑为编辑
+                    const form = document.getElementById('main-project-form');
+                    form.setAttribute('data-edit-id', mainId);
+                    form.querySelector('button[type="submit"]').textContent = '更新';
+                });
+            });
+
+            // 删除主项目
+            document.querySelectorAll('.delete-main-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const mainId = parseInt(this.getAttribute('data-id'));
+                    const mainProject = mainProjects.find(p => p.id === mainId);
+                    if (confirm(`确定要删除主项目「${mainProject.name}」及其所有子项目吗？`)) {
+                        mainProjects = mainProjects.filter(p => p.id !== mainId);
+                        updateUI();
+                    }
+                });
+            });
+
+            // 编辑子项目
+            document.querySelectorAll('.edit-sub-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const mainId = parseInt(this.getAttribute('data-main-id'));
+                    const subId = parseInt(this.getAttribute('data-sub-id'));
+                    const mainProject = mainProjects.find(p => p.id === mainId);
+                    const subProject = mainProject.subProjects.find(sp => sp.id === subId);
+                    
+                    // 填充表单
+                    document.getElementById('parent-project').value = mainId;
+                    document.getElementById('sub-project-name').value = subProject.name;
+                    document.getElementById('sub-start-date').value = subProject.start;
+                    document.getElementById('sub-end-date').value = subProject.end;
+                    document.getElementById('sub-progress').value = subProject.progress;
+                    document.getElementById('sub-responsible').value = subProject.responsible || '';
+                    
+                    // 修改表单提交逻辑为编辑
+                    const form = document.getElementById('sub-project-form');
+                    form.setAttribute('data-edit-main-id', mainId);
+                    form.setAttribute('data-edit-sub-id', subId);
+                    form.querySelector('button[type="submit"]').textContent = '更新';
+                });
+            });
+
+            // 删除子项目
+            document.querySelectorAll('.delete-sub-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const mainId = parseInt(this.getAttribute('data-main-id'));
+                    const subId = parseInt(this.getAttribute('data-sub-id'));
+                    const mainProject = mainProjects.find(p => p.id === mainId);
+                    const subProject = mainProject.subProjects.find(sp => sp.id === subId);
+                    
+                    if (confirm(`确定要删除子项目「${subProject.name}」及其所有待办事项吗？`)) {
+                        mainProject.subProjects = mainProject.subProjects.filter(sp => sp.id !== subId);
+                        updateUI();
+                    }
+                });
+            });
+        }
+
+        // 绑定待办事项事件
+        function bindTodoActions() {
+            // 待办事项勾选/取消
+            document.querySelectorAll('.todo-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const mainId = parseInt(this.getAttribute('data-main-id'));
+                    const subId = parseInt(this.getAttribute('data-sub-id'));
+                    const todoId = parseInt(this.getAttribute('data-todo-id'));
+                    
+                    const mainProject = mainProjects.find(p => p.id === mainId);
+                    const subProject = mainProject.subProjects.find(sp => sp.id === subId);
+                    const todo = subProject.todos.find(t => t.id === todoId);
+                    
+                    todo.completed = this.checked;
+                    updateUI();
+                });
+            });
+
+            // 删除待办事项
+            document.querySelectorAll('.delete-todo-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const mainId = parseInt(this.getAttribute('data-main-id'));
+                    const subId = parseInt(this.getAttribute('data-sub-id'));
+                    const todoId = parseInt(this.getAttribute('data-todo-id'));
+                    
+                    const mainProject = mainProjects.find(p => p.id === mainId);
+                    const subProject = mainProject.subProjects.find(sp => sp.id === subId);
+                    
+                    if (confirm('确定要删除该待办事项吗？')) {
+                        subProject.todos = subProject.todos.filter(t => t.id !== todoId);
+                        updateUI();
+                    }
+                });
+            });
+        }
+
+        // 更新UI
+        function updateUI() {
+            initGanttChart();
+            renderProjectList();
+            updateSelectOptions();
+            // 保存到本地存储
+            localStorage.setItem('ganttMainProjects', JSON.stringify(mainProjects));
+        }
+
+        // 主项目表单提交处理
+        document.getElementById('main-project-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const projectData = {
+                id: generateId(),
+                name: document.getElementById('main-project-name').value,
+                start: document.getElementById('main-start-date').value,
+                end: document.getElementById('main-end-date').value,
+                progress: parseInt(document.getElementById('main-progress').value),
+                responsible: document.getElementById('main-responsible').value,
+                subProjects: []
+            };
+
+            // 检查日期有效性
+            if (new Date(projectData.start) > new Date(projectData.end)) {
+                alert('结束日期不能早于开始日期！');
+                return;
+            }
+
+            const editId = this.getAttribute('data-edit-id');
+            if (editId !== null) {
+                // 编辑模式
+                const index = mainProjects.findIndex(p => p.id === parseInt(editId));
+                projectData.id = parseInt(editId);
+                projectData.subProjects = mainProjects[index].subProjects; // 保留子项目
+                mainProjects[index] = projectData;
+                this.removeAttribute('data-edit-id');
+                this.querySelector('button[type="submit"]').textContent = '添加';
+            } else {
+                // 添加模式
+                mainProjects.push(projectData);
+            }
+
+            // 重置表单
+            this.reset();
+            // 更新UI
+            updateUI();
+        });
+
+        // 子项目表单提交处理
+        document.getElementById('sub-project-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const mainId = parseInt(document.getElementById('parent-project').value);
+            const subProjectData = {
+                id: generateId(),
+                name: document.getElementById('sub-project-name').value,
+                start: document.getElementById('sub-start-date').value,
+                end: document.getElementById('sub-end-date').value,
+                progress: parseInt(document.getElementById('sub-progress').value),
+                responsible: document.getElementById('sub-responsible').value,
+                todos: []
+            };
+
+            // 检查日期有效性
+            if (new Date(subProjectData.start) > new Date(subProjectData.end)) {
+                alert('结束日期不能早于开始日期！');
+                return;
+            }
+
+            const editMainId = this.getAttribute('data-edit-main-id');
+            const editSubId = this.getAttribute('data-edit-sub-id');
+            if (editMainId !== null && editSubId !== null) {
+                // 编辑模式
+                const mainProject = mainProjects.find(p => p.id === parseInt(editMainId));
+                const index = mainProject.subProjects.findIndex(sp => sp.id === parseInt(editSubId));
+                subProjectData.id = parseInt(editSubId);
+                subProjectData.todos = mainProject.subProjects[index].todos; // 保留待办事项
+                mainProject.subProjects[index] = subProjectData;
+                
+                this.removeAttribute('data-edit-main-id');
+                this.removeAttribute('data-edit-sub-id');
+                this.querySelector('button[type="submit"]').textContent = '添加';
+            } else {
+                // 添加模式
+                const mainProject = mainProjects.find(p => p.id === mainId);
+                mainProject.subProjects.push(subProjectData);
+            }
+
+            // 重置表单
+            this.reset();
+            // 更新UI
+            updateUI();
+        });
+
+        // 待办事项表单提交处理
+        document.getElementById('todo-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const [mainId, subId] = document.getElementById('parent-sub-project').value.split('-').map(Number);
+            const todoData = {
+                id: generateId(),
+                content: document.getElementById('todo-content').value,
+                completed: false,
+                priority: document.getElementById('todo-priority').value
+            };
+
+            // 找到对应的子项目
+            const mainProject = mainProjects.find(p => p.id === mainId);
+            const subProject = mainProject.subProjects.find(sp => sp.id === subId);
+            
+            // 添加待办事项
+            subProject.todos.push(todoData);
+
+            // 重置表单
+            this.reset();
+            // 更新UI
+            updateUI();
+        });
+
+        // 页面加载时初始化
+        window.addEventListener('DOMContentLoaded', function() {
+            // 从本地存储加载数据
+            const savedMainProjects = localStorage.getItem('ganttMainProjects');
+            if (savedMainProjects) {
+                mainProjects = JSON.parse(savedMainProjects);
+            }
+            
+            // 设置默认日期为今天
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('main-start-date').value = today;
+            document.getElementById('sub-start-date').value = today;
+            
+            // 初始化UI
+            updateUI();
+        });
+    </script>
+</body>
+</html>
